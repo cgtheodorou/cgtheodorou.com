@@ -7,12 +7,13 @@ let resized = false;
 
 const gui = new dat.GUI();
 gui.close();
+
 const world = {
     plane: {
         width:400,
         height: 400,
         widthSegments: 50,
-        heightSegments: 50
+        heightSegments: 80
     }
 }
 gui.add(world.plane, 'width', 1, 500).onChange(() => {
@@ -35,8 +36,8 @@ const raycaster = new THREE.Raycaster();
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
-camera.position.z = 50;
-//camera.position.y = -80;
+camera.position.z = 15;
+camera.position.y = -80;
 //camera.position.x = 30;
 
 const renderer = new THREE.WebGLRenderer();
@@ -71,11 +72,10 @@ function generatePlane(){
     for(let i=0; i< planeMesh.geometry.attributes.position.count; i++){
         colors.push(0, .19, .4);
     }
+
     planeMesh.geometry.setAttribute(
         'color', 
-        new THREE.BufferAttribute(new 
-            Float32Array(colors), 3)
-        );
+        new THREE.BufferAttribute(new Float32Array(colors), 3));
 
         // vertice position randomization
         const {array} = planeMesh.geometry.attributes.position;
