@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta content="Charalambos Theodorou" property="og:title" />
-    <meta content="Software Architect, Game Development & Cyber security enthusiast" property="og:description" />
+    <meta content="Head of Engineering, Software Architect, Game Developer & Cyber security enthusiast" property="og:description" />
     <meta content="https://www.cgtheodorou.com" property="og:url" />
     <meta content="/../android-chrome-512x512.png" property="og:image" />
     <meta charset="UTF-8" />
@@ -22,10 +22,38 @@
             -webkit-font-smoothing: antialiased;
         }
 
+        #app {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 5rem 1.25rem;
+            box-sizing: border-box;
+        }
+
         .container {
-            top: 50%;
-            transform: translate(-50%, -50%);
-            left: 50%;
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            max-width: 42rem;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 0;
+        }
+
+        .vignette {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background: radial-gradient(ellipse 60% 55% at 50% 50%,
+                rgba(2, 3, 10, 0.85) 0%,
+                rgba(2, 3, 10, 0.55) 35%,
+                rgba(2, 3, 10, 0) 70%);
         }
 
         .font-exo {
@@ -42,15 +70,42 @@
     </style>
   </head>
   <body>
+    <div class="vignette"></div>
     <div id="app">
-        <div class="container absolute text-white text-center">
+        <div class="container text-white text-center">
             <h1 class="font-mono text-sm uppercase tracking-wide">Charalambos Theodorou</h1>
             <p class="font-exo text-4xl">
-                In pursuit of bugless code
+                Code, games, and the spaces between
             </p>
-            <a href="https://github.com/cgtheodorou" class="border px-4 py-2 rounded-lg text-sm font-mono uppercase mt-8 hover:bg-white hover:text-gray-800 inline-block" target="_blank">Github</a>
-            <a href="https://www.linkedin.com/in/charalambos-theodorou-07572b55/" class="border px-4 py-2 rounded-lg text-sm font-mono uppercase mt-8 hover:bg-white hover:text-gray-800 inline-block" target="_blank">LinkedIn</a>
+            <p class="font-mono text-xs sm:text-sm text-gray-300 mt-3 tracking-wide">
+                Head of Backend Engineering @ CredAbility &amp; TotallyMoney
+            </p>
+            <div class="mt-8">
+                <button id="atmosphere-btn" type="button" class="border px-4 py-2 rounded-lg text-sm font-mono uppercase hover:bg-white hover:text-gray-800 inline-block cursor-pointer" aria-pressed="false">♪ Make it atmospheric</button>
+            </div>
+            <div class="mt-4">
+                <a href="https://github.com/cgtheodorou" class="border px-4 py-2 rounded-lg text-sm font-mono uppercase hover:bg-white hover:text-gray-800 inline-block" target="_blank" rel="noopener">Github</a>
+                <a href="https://www.linkedin.com/in/charalambos-theodorou-07572b55/" class="border px-4 py-2 rounded-lg text-sm font-mono uppercase hover:bg-white hover:text-gray-800 inline-block" target="_blank" rel="noopener">LinkedIn</a>
+            </div>
+            <div class="mt-12">
+                <p class="font-mono text-xs uppercase tracking-widest text-gray-400">— Projects —</p>
+                <div class="mt-6">
+                    <a href="https://echogrid.app" class="font-exo text-2xl text-blue-200 hover:text-white border-b border-blue-800 hover:border-blue-300 inline-block" target="_blank" rel="noopener">EchoGrid</a>
+                    <p class="font-mono text-xs text-gray-300 mt-2 max-w-md mx-auto px-4 text-left">A privacy-first desktop app for voice and chat. No accounts, no tracking, no limits.</p>
+                </div>
+                <div class="mt-6">
+                    <a href="https://expertsnagging.co.uk" class="font-exo text-2xl text-blue-200 hover:text-white border-b border-blue-800 hover:border-blue-300 inline-block" target="_blank" rel="noopener">ExpertSnagging</a>
+                    <p class="font-mono text-xs text-gray-300 mt-2 max-w-md mx-auto px-4 text-left">The offline-first construction defect management platform that keeps your projects on track whether you're on-site or online.</p>
+                </div>
+                <div class="mt-6">
+                    <span class="font-exo text-2xl text-gray-500 inline-block tracking-widest">? ? ?</span>
+                    <p class="font-mono text-xs text-gray-500 mt-1 max-w-md mx-auto px-4">Something new is taking shape in the dark.</p>
+                </div>
+            </div>
         </div>
+    </div>
+    <div aria-hidden="true" style="position:absolute;left:-9999px;top:0;width:320px;height:180px;overflow:hidden;">
+        <div id="yt-player"></div>
     </div>
     <script type="module" src="/main.js"></script>
   </body>
