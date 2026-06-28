@@ -1,171 +1,233 @@
-import * as THREE from 'three';
+// ============================================================
+//  Terminal background - a wall of self-typing code streams
+// ============================================================
 
-// ---- Renderer with WebGL fallback ----
-let renderer;
-try {
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-} catch (e) {
-    document.body.innerHTML = '<p style="font-family:sans-serif;padding:2rem;">WebGL is unavailable in this browser. Try enabling hardware acceleration, updating your graphics driver, or opening this page in another browser.</p>';
-    throw e;
+// ---- Canvas setup ----
+const canvas = document.createElement('canvas');
+const ctx = canvas.getContext('2d');
+if (!ctx) {
+    document.body.innerHTML = '<p style="font-family:sans-serif;padding:2rem;">2D canvas is unavailable in this browser. Try updating it or opening this page elsewhere.</p>';
+    throw new Error('2D canvas unavailable');
 }
-renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setClearColor(0x02030a, 1);
-document.body.appendChild(renderer.domElement);
+document.body.appendChild(canvas);
 
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 1000);
-camera.position.z = 120;
-
-// ---- Particle geometry ----
-const COUNT = 2600;
-const SPREAD = 220;
-const positions = new Float32Array(COUNT * 3);
-const scales = new Float32Array(COUNT);
-const colors = new Float32Array(COUNT * 3);
-
-// Deep-blue -> cyan palette
-const cDeep = new THREE.Color(0x003066);
-const cCyan = new THREE.Color(0x2bd6ff);
-
-for (let i = 0; i < COUNT; i++) {
-    positions[i * 3 + 0] = (Math.random() - 0.5) * SPREAD;
-    positions[i * 3 + 1] = (Math.random() - 0.5) * SPREAD;
-    positions[i * 3 + 2] = (Math.random() - 0.5) * SPREAD;
-
-    scales[i] = 0.5 + Math.random() * 2.0;
-
-    const mix = Math.pow(Math.random(), 1.6); // bias toward deep blue
-    const c = cDeep.clone().lerp(cCyan, mix);
-    colors[i * 3 + 0] = c.r;
-    colors[i * 3 + 1] = c.g;
-    colors[i * 3 + 2] = c.b;
-}
-
-const geometry = new THREE.BufferGeometry();
-geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-geometry.setAttribute('aScale', new THREE.BufferAttribute(scales, 1));
-geometry.setAttribute('aColor', new THREE.BufferAttribute(colors, 3));
-
-// ---- Shader ----
-const vertexShader = `
-uniform float uTime;
-uniform float uSize;
-attribute float aScale;
-attribute vec3 aColor;
-varying vec3 vColor;
-varying float vDepth;
-
-// Ashima simplex noise 3D
-vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x,289.0);}
-vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-0.85373472095314*r;}
-float snoise(vec3 v){
-  const vec2 C=vec2(1.0/6.0,1.0/3.0); const vec4 D=vec4(0.0,0.5,1.0,2.0);
-  vec3 i=floor(v+dot(v,C.yyy)); vec3 x0=v-i+dot(i,C.xxx);
-  vec3 g=step(x0.yzx,x0.xyz); vec3 l=1.0-g; vec3 i1=min(g.xyz,l.zxy); vec3 i2=max(g.xyz,l.zxy);
-  vec3 x1=x0-i1+1.0*C.xxx; vec3 x2=x0-i2+2.0*C.xxx; vec3 x3=x0-1.0+3.0*C.xxx;
-  i=mod(i,289.0);
-  vec4 p=permute(permute(permute(i.z+vec4(0.0,i1.z,i2.z,1.0))+i.y+vec4(0.0,i1.y,i2.y,1.0))+i.x+vec4(0.0,i1.x,i2.x,1.0));
-  float n_=1.0/7.0; vec3 ns=n_*D.wyz-D.xzx;
-  vec4 j=p-49.0*floor(p*ns.z*ns.z);
-  vec4 x_=floor(j*ns.z); vec4 y_=floor(j-7.0*x_);
-  vec4 x=x_*ns.x+ns.yyyy; vec4 y=y_*ns.x+ns.yyyy; vec4 h=1.0-abs(x)-abs(y);
-  vec4 b0=vec4(x.xy,y.xy); vec4 b1=vec4(x.zw,y.zw);
-  vec4 s0=floor(b0)*2.0+1.0; vec4 s1=floor(b1)*2.0+1.0; vec4 sh=-step(h,vec4(0.0));
-  vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy; vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;
-  vec3 p0=vec3(a0.xy,h.x); vec3 p1=vec3(a0.zw,h.y); vec3 p2=vec3(a1.xy,h.z); vec3 p3=vec3(a1.zw,h.w);
-  vec4 norm=taylorInvSqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
-  p0*=norm.x; p1*=norm.y; p2*=norm.z; p3*=norm.w;
-  vec4 m=max(0.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.0); m=m*m;
-  return 42.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
-}
-
-void main() {
-  vec3 pos = position;
-  float t = uTime * 0.05;
-  float n1 = snoise(pos * 0.012 + vec3(t, 0.0, 0.0));
-  float n2 = snoise(pos * 0.012 + vec3(0.0, t, 100.0));
-  float n3 = snoise(pos * 0.012 + vec3(100.0, 0.0, t));
-  pos += vec3(n1, n2, n3) * 10.0;
-
-  vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-  gl_Position = projectionMatrix * mvPosition;
-  gl_PointSize = uSize * aScale * (300.0 / -mvPosition.z);
-  vColor = aColor;
-  vDepth = -mvPosition.z;
-}
-`;
-
-const fragmentShader = `
-varying vec3 vColor;
-varying float vDepth;
-uniform float uFogNear;
-uniform float uFogFar;
-void main() {
-  float d = distance(gl_PointCoord, vec2(0.5));
-  if (d > 0.5) discard;
-  float alpha = smoothstep(0.5, 0.0, d);
-  float fog = 1.0 - smoothstep(uFogNear, uFogFar, vDepth);
-  gl_FragColor = vec4(vColor, alpha * fog * 0.55);
-}
-`;
-
-const material = new THREE.ShaderMaterial({
-    vertexShader,
-    fragmentShader,
-    uniforms: {
-        uTime: { value: 0 },
-        uSize: { value: 5.0 },
-        uFogNear: { value: 120.0 },
-        uFogFar: { value: 320.0 }
-    },
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending
-});
-
-const points = new THREE.Points(geometry, material);
-scene.add(points);
-
-// ---- Mouse parallax ----
-const mouse = { x: 0, y: 0 };
-const target = { x: 0, y: 0 };
-addEventListener('mousemove', (event) => {
-    mouse.x = (event.clientX / innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / innerHeight) * 2 + 1;
-});
-
-// ---- Reduced motion ----
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const timeScale = reduceMotion ? 0.15 : 1.0;
 
-// ---- Animation loop ----
-let lastTime = performance.now();
-function animate() {
-    requestAnimationFrame(animate);
-    const now = performance.now();
-    const delta = Math.min((now - lastTime) / 1000, 0.1);
-    lastTime = now;
-    material.uniforms.uTime.value += delta * timeScale;
+// ---- Look & feel ----
+const FONT_SIZE = 13;
+const LINE_HEIGHT = 18;
+const COL_WIDTH = 280;   // target px width per terminal column
+const COL_GAP = 30;
+const PAD = 18;
+const GLOBAL_ALPHA = 0.52;
 
-    target.x = mouse.x * 0.15;
-    target.y = mouse.y * 0.15;
-    points.rotation.y += (target.x - points.rotation.y) * 0.03;
-    points.rotation.x += (-target.y - points.rotation.x) * 0.03;
+// Blue -> cyan palette, plus status accents
+const BASE = [125, 215, 245];
+const DIM = [80, 140, 175];
+const OK = [90, 230, 165];
+const WARN = [255, 195, 100];
+const FAIL = [255, 105, 105];
 
-    renderer.render(scene, camera);
+// ---- Small helpers ----
+const rand = (a, b) => a + Math.random() * (b - a);
+const randint = (a, b) => Math.floor(rand(a, b + 1));
+const pick = (arr) => arr[randint(0, arr.length - 1)];
+const hex = (n) => Array.from({ length: n }, () => '0123456789ABCDEF'[randint(0, 15)]).join('');
+const seg = (t, c) => ({ t, c: c || BASE });
+
+// ---- Content pools ----
+const ACTIONS = [
+    'init renderer', 'compile shaders', 'load geometry', 'mount /dev/gpu',
+    'spawn worker pool', 'link libcore', 'alloc framebuffer', 'warm cache',
+    'negotiate tls', 'seed prng', 'index modules', 'boot scheduler',
+    'map memory pages', 'open socket :8443', 'verify checksum', 'deflate assets',
+    'resolve deps', 'jit warmup', 'attach debugger', 'flush pipeline'
+];
+const CODE = [
+    'for (i = 0; i < n; i++) {', '  spawn(node[i]);', '}',
+    'const k = hash(seed);', 'if (ready) flush();', 'await nextFrame();',
+    'render(scene, cam);', 'vec3 p = noise(uv);', 'return p * 0.5 + 0.5;',
+    'queue.push(task);', 'while (q.len) tick();', 'gpu.dispatch(64, 1, 1);',
+    'let mask = 1 << bit;', 'ptr = malloc(size);', 'free(ptr); ptr = 0;',
+    'emit("ready", ctx);', 'state = State.LIVE;'
+];
+const ASM = [
+    'mov  rax, [rbx]', 'xor  edx, edx', 'lea  rsi, [rip+0x2c]', 'test eax, eax',
+    'jne  0x4af3', 'push rbp', 'call qword [rax]', 'add  rsp, 0x20',
+    'cmp  rcx, rdx', 'ret'
+];
+
+function genBoot() {
+    const r = Math.random();
+    const status = r < 0.84 ? seg('[ ok ]', OK) : r < 0.95 ? seg('[warn]', WARN) : seg('[fail]', FAIL);
+    return [seg('> ' + pick(ACTIONS) + ' '), seg('.'.repeat(randint(2, 8)) + ' ', DIM), status];
 }
-animate();
+function genCode() { return [seg(pick(CODE))]; }
+function genHex() { return [seg('trace 0x' + hex(randint(4, 6)) + ' ', DIM), seg(pick(['mov', 'add', 'cmp', 'jmp']) + ' r' + randint(0, 9))]; }
+function genAsm() { return [seg('0x' + hex(4) + '  ', DIM), seg(pick(ASM))]; }
+function genProg() {
+    const n = 12, f = randint(0, n);
+    return [seg('build [', DIM), seg('#'.repeat(f) + ' '.repeat(n - f)), seg('] ' + Math.round((f / n) * 100) + '%', DIM)];
+}
+function genBlank() { return [seg('')]; }
+
+const GENERATORS = [genCode, genCode, genBoot, genBoot, genHex, genAsm, genProg, genBlank];
+const newLine = () => pick(GENERATORS)();
+const lineLen = (line) => line.reduce((s, g) => s + g.t.length, 0);
+
+// ---- Columns ----
+let W = 0, H = 0, dpr = 1, columns = [], visibleRows = 0;
+
+function buildColumns() {
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth;
+    H = innerHeight;
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.font = FONT_SIZE + "px 'Space Mono', monospace";
+    ctx.textBaseline = 'alphabetic';
+
+    visibleRows = Math.ceil(H / LINE_HEIGHT) + 2;
+    const count = Math.max(1, Math.floor((W - 2 * PAD + COL_GAP) / (COL_WIDTH + COL_GAP)));
+    const span = (W - 2 * PAD - count * COL_WIDTH) / Math.max(1, count - 1 || 1);
+
+    columns = Array.from({ length: count }, (_, i) => {
+        const lines = Array.from({ length: visibleRows }, newLine);
+        const head = newLine();
+        return {
+            x: PAD + i * (COL_WIDTH + (count > 1 ? span : 0)),
+            lines,                                   // committed lines, newest last
+            head,                                    // line currently being typed
+            reveal: 0,                               // chars of head shown
+            done: false,
+            pause: 0,                                // time since head finished
+            scroll: 0,                               // slide animation offset (px)
+            speed: rand(32, 78) * (reduceMotion ? 0.4 : 1),  // chars / sec
+            holdFor: rand(0.1, 0.5) / (reduceMotion ? 0.5 : 1)
+        };
+    });
+}
+
+// ---- Per-frame update ----
+function update(col, dt) {
+    if (!col.done) {
+        col.reveal += col.speed * dt;
+        if (col.reveal >= lineLen(col.head)) {
+            col.reveal = lineLen(col.head);
+            col.done = true;
+            col.pause = 0;
+        }
+    } else {
+        col.pause += dt;
+        if (col.pause >= col.holdFor) {
+            col.lines.push(col.head);
+            if (col.lines.length > visibleRows + 1) col.lines.shift();
+            col.head = newLine();
+            col.reveal = 0;
+            col.done = false;
+            col.scroll = LINE_HEIGHT;            // start one line low, slide up
+            col.holdFor = rand(0.1, 0.5) / (reduceMotion ? 0.5 : 1);
+        }
+    }
+    if (col.scroll > 0) col.scroll = Math.max(0, col.scroll - (LINE_HEIGHT / 0.12) * dt);
+}
+
+// ---- Draw one terminal column ----
+function drawColumn(col, blink) {
+    const bottom = H - PAD;
+
+    // committed lines, from newest (just above head) upward
+    for (let k = 0; k < col.lines.length; k++) {
+        const v = col.lines.length - k;                 // visual row from bottom (head = 0)
+        const y = bottom - v * LINE_HEIGHT + col.scroll;
+        const a = Math.pow(Math.max(0, 1 - v / visibleRows), 1.3) * GLOBAL_ALPHA;
+        if (a < 0.025 || y < -LINE_HEIGHT) continue;
+        drawSegments(col.lines[k], col.x, y, a, Infinity);
+    }
+
+    // head line (typing), brightest, with cursor
+    const yHead = bottom + col.scroll;
+    const headAlpha = GLOBAL_ALPHA * 1.15;
+    const endX = drawSegments(col.head, col.x, yHead, headAlpha, col.reveal);
+    if (blink || !col.done) {
+        ctx.fillStyle = `rgba(${BASE[0]},${BASE[1]},${BASE[2]},${headAlpha})`;
+        ctx.fillRect(endX, yHead - FONT_SIZE + 1, FONT_SIZE * 0.62, FONT_SIZE);
+    }
+}
+
+// Draw segments left to right, up to `limit` revealed chars. Returns final x.
+function drawSegments(line, x, y, alpha, limit) {
+    let shown = 0;
+    for (const g of line) {
+        if (shown >= limit) break;
+        const take = Math.min(g.t.length, Math.floor(limit - shown));
+        const str = take >= g.t.length ? g.t : g.t.slice(0, take);
+        if (str) {
+            ctx.fillStyle = `rgba(${g.c[0]},${g.c[1]},${g.c[2]},${alpha})`;
+            ctx.fillText(str, x, y);
+            x += ctx.measureText(str).width;
+        }
+        shown += g.t.length;
+    }
+    return x;
+}
+
+// ---- Glitch: occasional horizontal slice shift ----
+let glitchIn = rand(2, 6);
+let glitchFor = 0;
+function maybeGlitch(dt) {
+    if (reduceMotion) return;
+    if (glitchFor > 0) {
+        glitchFor -= dt;
+        const by = randint(0, H - 40);
+        const bh = randint(8, 40);
+        const dx = randint(-12, 12);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(canvas, 0, by * dpr, W * dpr, bh * dpr, dx, by, W, bh);
+        ctx.globalCompositeOperation = 'source-over';
+        return;
+    }
+    glitchIn -= dt;
+    if (glitchIn <= 0) {
+        glitchIn = rand(2.5, 7);
+        glitchFor = rand(0.06, 0.16);
+    }
+}
+
+// ---- Main loop ----
+let last = performance.now();
+function frame() {
+    requestAnimationFrame(frame);
+    const now = performance.now();
+    const dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+
+    ctx.fillStyle = '#02030a';
+    ctx.fillRect(0, 0, W, H);
+
+    const blink = (now / 1000) % 1 < 0.55;
+    for (const col of columns) {
+        update(col, dt);
+        drawColumn(col, blink);
+    }
+    maybeGlitch(dt);
+}
+
+buildColumns();
+frame();
 
 // ---- Resize ----
+let resizeTimer;
 addEventListener('resize', () => {
-    renderer.setSize(innerWidth, innerHeight);
-    camera.aspect = innerWidth / innerHeight;
-    camera.updateProjectionMatrix();
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(buildColumns, 150);
 });
 
 // ---- Atmospheric music ----
-const ATMOS_VIDEO_ID = 'Xu2eAI7viFw';
+const ATMOS_VIDEO_ID = 'bV-hSgL1R74';
 const LABEL_PLAY = '♪ Make it atmospheric';
 const LABEL_STOP = '■ Stop the atmosphere';
 
@@ -210,7 +272,8 @@ if (atmosphereBtn) {
                 playlist: ATMOS_VIDEO_ID,
                 controls: 0,
                 disablekb: 1,
-                playsinline: 1
+                playsinline: 1,
+                start: 120
             },
             events: {
                 onReady: () => {

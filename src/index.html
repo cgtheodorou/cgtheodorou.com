@@ -36,6 +36,11 @@
             z-index: 2;
             width: 100%;
             max-width: 42rem;
+            /* Dark halo so text stays legible over the code wall behind it */
+            text-shadow:
+                0 0 2px rgba(2, 3, 10, 1),
+                0 0 10px rgba(2, 3, 10, 0.95),
+                0 0 22px rgba(2, 3, 10, 0.7);
         }
 
         canvas {
@@ -56,6 +61,32 @@
                 rgba(2, 3, 10, 0) 70%);
         }
 
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                to bottom,
+                rgba(0, 0, 0, 0) 0px,
+                rgba(0, 0, 0, 0) 2px,
+                rgba(0, 0, 0, 0.18) 3px);
+            mix-blend-mode: multiply;
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+            .scanlines {
+                animation: flicker 4.5s steps(60) infinite;
+            }
+        }
+
+        @keyframes flicker {
+            0%, 96%, 100% { opacity: 1; }
+            97% { opacity: 0.82; }
+            98% { opacity: 0.96; }
+            99% { opacity: 0.86; }
+        }
+
         .font-exo {
             font-family: 'Exo 2', sans-serif;
             font-weight:700; 
@@ -70,6 +101,7 @@
     </style>
   </head>
   <body>
+    <div class="scanlines"></div>
     <div class="vignette"></div>
     <div id="app">
         <div class="container text-white text-center">
